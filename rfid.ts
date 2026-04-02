@@ -22,12 +22,31 @@ namespace RFID {
     //% weight=90
     export function readID(): string {
         let data = serial.readString()
-        data = data.replace(/\r|\n/g, "") // enlever retour chariot/ligne
+        let cleaned = ""
 
-        // Chercher un ID sur 10 chiffres dans la trame
-        let match = /[0-9]{10}/.exec(data)
-        if (match) {
-            lastID = match[0]
+        // enlever \r et \n
+        for (let i = 0; i < data.length; i++) {
+            let c = data.charAt(i)
+            if (c != "\r" && c != "\n") {
+                cleaned += c
+            }
+        }
+
+        // chercher 10 chiffres consécutifs
+        for (let i = 0; i <= cleaned.length - 10; i++) {
+            let candidate = cleaned.substr(i, 10)
+            let isNumber = true
+            for (let j = 0; j < 10; j++) {
+                let ch = candidate.charAt(j)
+                if (ch < "0" || ch > "9") {
+                    isNumber = false
+                    break
+                }
+            }
+            if (isNumber) {
+                lastID = candidate
+                break
+            }
         }
 
         return lastID
@@ -40,5 +59,19 @@ namespace RFID {
     //% weight=80
     export function isEqual(value: string): boolean {
         return lastID == value
+    }
+
+    /**
+     * Retourner l'ID en entier (pour comparer facilement)
+     */
+    //% block="ID RFID en entier"
+    //% weight=70
+    export function readIDInt(): number {
+        let idStr = readID()
+        let num = 0
+        for (let i = 0; i < idStr.length; i++) {
+            num = num * 10 + parseInt(idStr.charAt(i))
+        }
+        return num
     }
 }
