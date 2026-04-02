@@ -1,7 +1,8 @@
 //% weight=100 color=#0fbc11 icon="\uf2db"
 namespace RFID {
 
-    let lastID = ""
+    let lastRawID = 0
+    let lastID = 0
 
     /**
      * Initialiser le lecteur RFID
@@ -16,39 +17,48 @@ namespace RFID {
     }
 
     /**
-     * Lire l'ID RFID (string 10 chiffres)
+     * Lire l'ID RFID brut
      */
-    //% block="lire ID RFID"
+    //% block="lire ID RFID brut"
     //% weight=90
-    export function readID(): string {
+    export function readRawID(): number {
         let data = serial.readString()
-        let cleaned = ""
+        data = data.replace("\r", "").replace("\n", "")
 
-        // enlever \r et \n
-        for (let i = 0; i < data.length; i++) {
-            let c = data.charAt(i)
-            if (c != "\r" && c != "\n") {
-                cleaned += c
-            }
+        if (data.length > 0) {
+            // Convertir en entier depuis la chaîne reçue
+            lastRawID = parseInt(data)
         }
 
-        // chercher 10 chiffres consécutifs
-        for (let i = 0; i <= cleaned.length - 10; i++) {
-            let candidate = cleaned.substr(i, 10)
-            let isNumber = true
-            for (let j = 0; j < 10; j++) {
-                let ch = candidate.charAt(j)
-                if (ch < "0" || ch > "9") {
-                    isNumber = false
-                    break
-                }
-            }
-            if (isNumber) {
-                lastID = candidate
-                break
-            }
+        return lastRawID
+    }
+
+    /**
+     * Lire l'ID RFID formaté en décimal lisible (comme sur le badge)
+     */
+    //% block="ID RFID décimal"
+    //% weight=80
+    export function readIDDecimal(): number {
+        let raw = readRawID()
+        // Conversion hex → décimal correct
+        // On inverse les octets selon le format de ton badge
+        let hexStr = raw.toString(16)
+        // S'assurer que la chaîne fait au moins 4 à 5 octets (padding à gauche si nécessaire)
+        while (hexStr.length < 8) {
+            hexStr = "0" + hexStr
         }
 
+        // Réordonner les octets (swap si nécessaire)
+        let byte1 = hexStr.substr(0, 2)
+        let byte2 = hexStr.substr(2, 2)
+        let byte3 = hexStr.substr(4, 2)
+        let byte4 = hexStr.substr(6, 2)
+
+        // Reconstituer l'ID lisible
+        let finalHex = byte4 + byte3 + byte2 + byte1
+        let idDecimal = parseInt(finalHex, 16)
+
+        lastID = idDecimal
         return lastID
     }
 
@@ -56,20 +66,8 @@ namespace RFID {
      * Vérifier si un ID correspond
      */
     //% block="ID RFID = %value"
-    //% weight=80
-    export function isEqual(value: string): boolean {
-        return lastID == value
-    }
-
-    /**
-     * Lire l'ID RFID en entier (sans zéro initial)
-     */
-    //% block="ID RFID en décimal"
     //% weight=70
-    export function readIDDecimal(): number {
-        let idStr = readID()
-        // parseInt va automatiquement ignorer les zéros initiaux
-        if (idStr == "") return 0
-        return parseInt(idStr)
+    export function isEqual(value: number): boolean {
+        return lastID == value
     }
 }
