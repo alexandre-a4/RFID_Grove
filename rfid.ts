@@ -9,22 +9,30 @@ namespace RFID {
     //% tx.defl=SerialPin.P0
     export function init(rx: SerialPin, tx: SerialPin): void {
         serial.redirect(tx, rx, BaudRate.BaudRate9600)
-        serial.setRxBufferSize(10) // tampon suffisant pour l'UID
+        serial.setRxBufferSize(32) // tampon plus grand
     }
 
     /**
-     * Lire le badge et renvoyer sa valeur en décimal
+     * Lire le badge et renvoyer sa valeur décimale
      */
     //% block="lire ID RFID"
     export function readIDDecimal(): number {
-        let buf = serial.readBuffer(5) // 5 octets UID
-        if (buf.length < 5) return 0
+        let data = serial.readBuffer(10) // lire plusieurs octets
 
-        // reconstruction du nombre lisible
-        // adapter l’ordre des octets selon ton badge
+        if (data.length < 6) return 0 // pas assez de données
+
+        // chercher la trame valide (ignorer start et stop)
+        // start = 0x02 souvent, stop = 0x03 ou dernier octet
+        let startIndex = 0
+        if (data.getUint8(0) == 0x02) startIndex = 1
+
+        let uidLength = 5 // nombre d’octets UID
+        if (startIndex + uidLength > data.length) return 0
+
+        // reconstituer le numéro
         let id = 0
-        for (let i = 0; i < 5; i++) {
-            id = id * 256 + buf.getUint8(i)
+        for (let i = startIndex; i < startIndex + uidLength; i++) {
+            id = id * 256 + data.getUint8(i)
         }
 
         return id
