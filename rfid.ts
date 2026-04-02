@@ -23,42 +23,59 @@ namespace RFID {
     //% weight=90
     export function readRawID(): number {
         let data = serial.readString()
-        data = data.replace("\r", "").replace("\n", "")
+        let cleaned = ""
 
-        if (data.length > 0) {
-            // Convertir en entier depuis la chaîne reçue
-            lastRawID = parseInt(data)
+        // enlever \r et \n
+        for (let i = 0; i < data.length; i++) {
+            let c = data.charAt(i)
+            if (c != "\r" && c != "\n") {
+                cleaned += c
+            }
+        }
+
+        if (cleaned.length > 0) {
+            lastRawID = parseInt(cleaned)
         }
 
         return lastRawID
     }
 
     /**
-     * Lire l'ID RFID formaté en décimal lisible (comme sur le badge)
+     * Convertir un nombre en hex (compatible MakeCode)
+     */
+    function toHex(n: number, padding: number): string {
+        let hex = ""
+        let digits = "0123456789ABCDEF"
+        while (n > 0) {
+            let d = n % 16
+            hex = digits.charAt(d) + hex
+            n = Math.floor(n / 16)
+        }
+        while (hex.length < padding) {
+            hex = "0" + hex
+        }
+        return hex
+    }
+
+    /**
+     * Lire l'ID RFID en décimal lisible (comme sur le badge)
      */
     //% block="ID RFID décimal"
     //% weight=80
     export function readIDDecimal(): number {
         let raw = readRawID()
-        // Conversion hex → décimal correct
-        // On inverse les octets selon le format de ton badge
-        let hexStr = raw.toString(16)
-        // S'assurer que la chaîne fait au moins 4 à 5 octets (padding à gauche si nécessaire)
-        while (hexStr.length < 8) {
-            hexStr = "0" + hexStr
-        }
+        if (raw == 0) return 0
 
-        // Réordonner les octets (swap si nécessaire)
-        let byte1 = hexStr.substr(0, 2)
-        let byte2 = hexStr.substr(2, 2)
-        let byte3 = hexStr.substr(4, 2)
-        let byte4 = hexStr.substr(6, 2)
+        // convertir en hex
+        let hexStr = toHex(raw, 8)
 
-        // Reconstituer l'ID lisible
-        let finalHex = byte4 + byte3 + byte2 + byte1
-        let idDecimal = parseInt(finalHex, 16)
+        // réordonner les octets : byte4 byte3 byte2 byte1
+        let finalHex = hexStr.charAt(6) + hexStr.charAt(7) +
+                       hexStr.charAt(4) + hexStr.charAt(5) +
+                       hexStr.charAt(2) + hexStr.charAt(3) +
+                       hexStr.charAt(0) + hexStr.charAt(1)
 
-        lastID = idDecimal
+        lastID = parseInt(finalHex, 16)
         return lastID
     }
 
