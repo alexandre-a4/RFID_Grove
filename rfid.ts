@@ -16,7 +16,7 @@ namespace RFID {
     }
 
     /**
-     * Lire l'ID RFID (formaté 10 chiffres)
+     * Lire l'ID RFID (string 10 chiffres)
      */
     //% block="lire ID RFID"
     //% weight=90
@@ -62,16 +62,14 @@ namespace RFID {
     }
 
     /**
-     * Retourner l'ID en entier (pour comparer facilement)
+     * Lire l'ID RFID en entier (sans zéro initial)
      */
-    //% block="ID RFID en entier"
+    //% block="ID RFID en décimal"
     //% weight=70
-    export function readIDInt(): number {
+    export function readIDDecimal(): number {
         let idStr = readID()
-        let num = 0
-        for (let i = 0; i < idStr.length; i++) {
-            num = num * 10 + parseInt(idStr.charAt(i))
-        }
-        return num
+        // parseInt va automatiquement ignorer les zéros initiaux
+        if (idStr == "") return 0
+        return parseInt(idStr)
     }
 }
