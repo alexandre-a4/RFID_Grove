@@ -25,6 +25,7 @@ namespace RFID {
 
         if (raw.length >= 10) {
             let hexStr = raw.substr(2, 8)
+            basic.showString(hexStr)
             return hexToDec(hexStr)
         }
 
