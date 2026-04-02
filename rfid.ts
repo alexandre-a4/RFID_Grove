@@ -54,3 +54,4 @@ namespace RFID {
         }
 
         return 0
+}
