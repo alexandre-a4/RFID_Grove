@@ -1,59 +1,86 @@
 //% weight=100 color=#0fbc11 icon="\uf2db"
 namespace RFID {
+    let buffer = ""
+
+    function hexCharValue(c: string): number {
+        let digits = "0123456789ABCDEF"
+        return digits.indexOf(c)
+    }
 
     function hexToDec(hex: string): number {
         let result = 0
-        let digits = "0123456789ABCDEF"
         hex = hex.toUpperCase()
 
         for (let i = 0; i < hex.length; i++) {
-            let c = hex.charAt(i)
-            let value = digits.indexOf(c)
-            let value = digits.indexOf(hex.charAt(i))
-            if (value < 0) return 0
-            result = result * 16 + value
+            let v = hexCharValue(hex.charAt(i))
+            if (v < 0) return 0
+            result = result * 16 + v
         }
 
         return result
     }
 
-    function keepHexOnly(raw: string): string {
-        let out = ""
-        let allowed = "0123456789ABCDEFabcdef"
+    function isHexChar(c: string): boolean {
+        let code = c.charCodeAt(0)
 
-        for (let i = 0; i < raw.length; i++) {
-            let c = raw.charAt(i)
-            if (allowed.indexOf(c) >= 0) {
-                out += c
+        if (code >= 48 && code <= 57) return true   // 0-9
+        if (code >= 65 && code <= 70) return true   // A-F
+        if (code >= 97 && code <= 102) return true  // a-f
+
+        return false
+    }
+
+    function extractLastValidFrame(data: string): string {
+        let hexOnly = ""
+
+        for (let i = 0; i < data.length; i++) {
+            let c = data.charAt(i)
+            if (isHexChar(c)) {
+                hexOnly += c.toUpperCase()
             }
         }
 
-        return out.toUpperCase()
+        // Une trame utile observée = 12 caractères hex :
+        // 2 d'entête + 8 d'identifiant + 2 de fin/checksum
+        // Si plusieurs trames sont collées, on prend la dernière.
+        if (hexOnly.length < 12) return ""
+
+        let start = hexOnly.length - 12
+        return hexOnly.substr(start, 12)
     }
 
     //% block="initialiser RFID RX %rx TX %tx"
     export function init(rx: SerialPin, tx: SerialPin): void {
         serial.redirect(tx, rx, BaudRate.BaudRate9600)
+        serial.setRxBufferSize(64)
+        buffer = ""
+        basic.pause(100)
     }
 
-    //% block="lire ID RFID"
     //% block="lire badge RFID"
     export function readID(): number {
-        let raw = serial.readString()
-        let hex = keepHexOnly(raw)
+        buffer += serial.readString()
 
-        if (raw.length >= 10) {
-            let hexStr = raw.substr(2, 8)
-            return hexToDec(hexStr)
-        // Trame attendue : 12 caractères hex
-        // 2 premiers = entête
-        // 8 suivants = ID utile
-        // 2 derniers = checksum
-        if (hex.length >= 12) {
-            return hexToDec(hex.substr(2, 8))
+        let frame = extractLastValidFrame(buffer)
+
+        // On évite que le buffer grossisse trop
+        if (buffer.length > 64) {
+            buffer = buffer.substr(buffer.length - 64, 64)
+        }
+
+        if (frame.length == 12) {
+            // Format observé :
+            // [0..1]   = entête
+            // [2..9]   = ID badge en hex
+            // [10..11] = checksum / fin
+            let idHex = frame.substr(2, 8)
+
+            // On vide le buffer après lecture valide
+            buffer = ""
+
+            return hexToDec(idHex)
         }
 
         return 0
     }
-}
 }
